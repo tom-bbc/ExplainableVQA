@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import numpy as np
+
 
 class MLP(nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
@@ -8,10 +10,10 @@ class MLP(nn.Module):
         self.out_ln = nn.Linear(hidden_channels, out_channels, bias=False)
         self.gelu = nn.GELU()
         self.dropout = nn.Dropout(0.5)
-        
+
     def forward(self, x):
         return self.out_ln(self.dropout(self.gelu(self.in_ln(x))))
-    
+
 class TextEncoder(nn.Module):
     def __init__(self, clip_model):
         super().__init__()
@@ -34,22 +36,22 @@ class TextEncoder(nn.Module):
         x = x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] @ self.text_projection
 
         return x
-    
+
 class MaxVQA(nn.Module):
     """
         Modified CLIP, which combined prompt tuning and feature adaptation.
         The spatial and temporal naturalnesses are fed as final features.
         Implcit features is also optional fed into the model.
     """
-    def __init__(self, text_tokens, embedding, text_encoder, n_ctx=1, share_ctx=False):
-        
+    def __init__(self, text_tokens, embedding, text_encoder, n_ctx=1, share_ctx=False, device='cpu'):
+
         super().__init__()
-        self.device = "cuda"
-        self.implicit_mlp = MLP(1792,64,1025)
+        self.device = device
+        self.implicit_mlp = MLP(1792, 64, 1025)
         self.tokenized_prompts = text_tokens
-        #self.text_encoder = TextEncoder(clip_model)
+        # self.text_encoder = TextEncoder(clip_model)
         self.share_ctx = share_ctx
-        
+
         if n_ctx > 0:
             if not share_ctx:
                 self.ctx = nn.Parameter(embedding[:, 1:1+n_ctx].clone())
@@ -60,16 +62,14 @@ class MaxVQA(nn.Module):
             print("Disabled Context Prompt")
         self.register_buffer("prefix", embedding[:, :1, :].clone())  # SOS
         self.register_buffer("suffix", embedding[:, 1 + n_ctx:, :].clone())# CLS, EOS
-        
+
         self.prefix.requires_grad = False
         self.suffix.requires_grad = False
         self.dropout = nn.Dropout(0.5)
 
-        
-        
         n_prompts = self.get_text_prompts()
-        self.text_feats = text_encoder(n_prompts.cuda(), self.tokenized_prompts)
-        
+        self.text_feats = text_encoder(n_prompts, self.tokenized_prompts)
+
     def get_text_prompts(self):
         if self.share_ctx:
             return torch.cat(
@@ -89,32 +89,45 @@ class MaxVQA(nn.Module):
                 dim=1,
         )
 
-        
     def initialize_inference(self, text_encoder):
         n_prompts = self.get_text_prompts()
         text_feats = text_encoder(n_prompts, self.tokenized_prompts)
-        self.text_feats = text_feats 
-            
+        self.text_feats = text_feats
+
     def forward(self, vis_feat, text_encoder, train=True, local=False):
         n_prompts = self.get_text_prompts()
         if train:
             text_feats = text_encoder(n_prompts, self.tokenized_prompts)
-            self.text_feats = text_feats 
+            self.text_feats = text_feats
         else:
             text_feats = self.text_feats
-            
+
         vis_feats = vis_feat.float()#.to(self.device)
         tmp_res = self.implicit_mlp(vis_feats)
-        
+
+        # print(f"5) Fusion module output: {tmp_res.shape}")
+
         vis_feats = tmp_res[...,:1024]  + vis_feats[...,:1024]
 
-        self.vis_feats = vis_feats 
+        # print(f"6) Visual features: {vis_feats.shape}")
+
+        self.vis_feats = vis_feats
         logits = 2 * self.dropout(self.vis_feats) @ text_feats.T
-        
-    
+
+        # print(f'7) Cosine similarity output: {logits.shape}')
+
         res = logits.float().reshape(*logits.shape[:-1], 2, -1).transpose(-2,-1).softmax(-1)[...,0]
-             
+
+        # print(f'8) Softmax output: {res.shape}')
+
         if local:
-            return res
+            local_predictions = np.transpose(res.mean((-2,0)).numpy())
+            # print(f'9) Local predictions: {local_predictions.shape}')
+
+            return local_predictions
         else:
-            return res.mean((-3,-2))
+            output = res.mean((-3,-2))
+            output = list(output.numpy())
+            output = list(output[0])
+
+            return output

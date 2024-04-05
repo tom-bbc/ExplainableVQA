@@ -1,5 +1,11 @@
 # *Towards* Explainable Video Quality Assessment
 
+## Tom's note
+
+* DOVER and open_clip added as git submodules.
+* open_clip must be updated to properly run, to acheive this run `sed -i "" "92s/return x\[0\]/return x/" src/open_clip/modified_resnet.py`.
+* We can then install open_clip and DOVER by running `pip install -e open_clip` and `pip install -e DOVER`.
+
 
 *New! Use DOVER++ with the merged [DIVIDE-MaxWell](https://github.com/VQAssessment/DOVER/tree/master/get_divide_dataset) dataset!*
 
@@ -25,7 +31,7 @@ Install and modify [OpenCLIP](https://github.com/mlfoundations/open_clip):
 ```
 git clone https://github.com/mlfoundations/open_clip.git
 cd open_clip
-sed -i '92s/return x\[0\]/return x/' src/open_clip/modified_resnet.py 
+sed -i '92s/return x\[0\]/return x/' src/open_clip/modified_resnet.py
 pip install -e .
 ```
 
@@ -35,9 +41,9 @@ Install [DOVER](https://github.com/vqassessment/DOVER) for Pre-processing and FA
 git clone https://github.com/vqassessment/DOVER.git
 cd DOVER
 pip install -e .
-mkdir pretrained_weights 
-cd pretrained_weights 
-wget https://github.com/VQAssessment/DOVER/releases/download/v0.1.0/DOVER.pth 
+mkdir pretrained_weights
+cd pretrained_weights
+wget https://github.com/VQAssessment/DOVER/releases/download/v0.1.0/DOVER.pth
 ```
 
 
@@ -86,7 +92,7 @@ Please feel free to cite our paper if you use this method or the MaxWell databas
 ```bibtex
 %explainable
 @inproceedings{wu2023explainable,
-      title={Towards Explainable Video Quality Assessment: A Database and a Language-Prompted Approach}, 
+      title={Towards Explainable Video Quality Assessment: A Database and a Language-Prompted Approach},
       author={Wu, Haoning and Zhang, Erli and Liao, Liang and Chen, Chaofeng and Hou, Jingwen and Wang, Annan and Sun, Wenxiu and Yan, Qiong and Lin, Weisi},
       year={2023},
       booktitle={ACM MM},
@@ -98,10 +104,9 @@ This dataset is built upon the original DIVIDE-3K dataset (*with perspective sco
 ```bibtex
 %dover and divide
 @inproceedings{wu2023dover,
-      title={Exploring Video Quality Assessment on User Generated Contents from Aesthetic and Technical Perspectives}, 
+      title={Exploring Video Quality Assessment on User Generated Contents from Aesthetic and Technical Perspectives},
       author={Wu, Haoning and Zhang, Erli and Liao, Liang and Chen, Chaofeng and Hou, Jingwen and Wang, Annan and Sun, Wenxiu and Yan, Qiong and Lin, Weisi},
       year={2023},
       booktitle={ICCV},
 }
 ```
-
